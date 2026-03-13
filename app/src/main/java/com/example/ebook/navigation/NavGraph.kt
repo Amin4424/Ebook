@@ -8,6 +8,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
+import com.example.ebook.ui.screens.bookdetails.BookDetailsScreen
 import com.example.ebook.ui.screens.category.CategoryScreen
 import com.example.ebook.ui.screens.home.HomeScreen
 import com.example.ebook.ui.screens.library.LibraryScreen
@@ -44,18 +46,14 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Home.route) {
             HomeScreen(
                 navController = navController,
-                onBookClick = { bookId ->
-                    navController.navigate(Screen.Reader.createRoute(bookId))
-                }
+                onBookClick = { bookId -> navController.navigate(Screen.BookDetails.createRoute(bookId)) }
             )
         }
 
         composable(Screen.Category.route) {
             CategoryScreen(
                 navController = navController,
-                onBookClick = { bookId ->
-                    navController.navigate(Screen.Reader.createRoute(bookId))
-                }
+                onBookClick = { bookId -> navController.navigate(Screen.BookDetails.createRoute(bookId)) }
             )
         }
 
@@ -66,9 +64,20 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Library.route) {
             LibraryScreen(
                 navController = navController,
-                onBookClick = { bookId ->
-                    navController.navigate(Screen.Reader.createRoute(bookId))
-                }
+                onBookClick = { bookId -> navController.navigate(Screen.BookDetails.createRoute(bookId)) }
+            )
+        }
+
+        composable(
+            route = Screen.BookDetails.route,
+            arguments = listOf(navArgument("bookId") { type = NavType.IntType }),
+            deepLinks = listOf(navDeepLink { uriPattern = Screen.BookDetails.DEEP_LINK })
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getInt("bookId") ?: 1
+            BookDetailsScreen(
+                bookId = bookId,
+                onBackClick = { navController.popBackStack() },
+                onReadClick = { navController.navigate(Screen.Reader.createRoute(bookId)) }
             )
         }
 

@@ -281,6 +281,16 @@ fun ReaderScreen(
                                         onClick = { viewModel.setHighlightColor(0xFFFFEB3B) }
                                     )
                                 }
+
+                                // Auto-scroll toggle (weight 1)
+                                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                    ControlButton(
+                                        icon = if (uiState.autoScrollEnabled) Icons.Filled.PauseCircle else Icons.Filled.SlowMotionVideo,
+                                        label = "اسکرول",
+                                        tint = if (uiState.autoScrollEnabled) Gold400 else textColor,
+                                        onClick = { viewModel.setAutoScroll(!uiState.autoScrollEnabled) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -343,6 +353,24 @@ fun ReaderScreen(
                             }
                             HorizontalDivider(color = textColor.copy(alpha = 0.05f))
                         }
+                    }
+                }
+            }
+
+            // Auto-scroll FAB indicator
+            if (uiState.autoScrollEnabled) {
+                Surface(
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 56.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Gold400.copy(alpha = 0.9f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(imageVector = Icons.Filled.PlayCircle, contentDescription = null, tint = Navy900, modifier = Modifier.size(16.dp))
+                        Text(text = "پیمایش خودکار", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Navy900)
                     }
                 }
             }
