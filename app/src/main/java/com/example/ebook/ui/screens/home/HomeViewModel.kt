@@ -12,8 +12,12 @@ import javax.inject.Inject
 data class HomeUiState(
     val allBooks: List<Book> = emptyList(),
     val featuredBooks: List<Book> = emptyList(),
+    val filteredBooks: List<Book> = emptyList(),
     val continueReading: Pair<Book, ReadingProgress>? = null,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val totalBooksFinished: Int = 2,
+    val readingStreakDays: Int = 5,
+    val totalMinutesRead: Int = 1240
 )
 
 @HiltViewModel
@@ -30,10 +34,12 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun loadBooks() {
+        val all = repository.getAllBooks()
         _uiState.update { state ->
             state.copy(
-                allBooks = repository.getAllBooks(),
-                featuredBooks = repository.getFeaturedBooks()
+                allBooks = all,
+                featuredBooks = repository.getFeaturedBooks(),
+                filteredBooks = all
             )
         }
     }
@@ -52,6 +58,11 @@ class HomeViewModel @Inject constructor(
     }
 
     fun updateSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        val filtered = if (query.isBlank()) {
+            _uiState.value.allBooks
+        } else {
+            repository.searchBooks(query)
+        }
+        _uiState.update { it.copy(searchQuery = query, filteredBooks = filtered) }
     }
 }

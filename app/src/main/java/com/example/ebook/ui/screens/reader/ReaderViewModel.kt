@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ebook.data.model.Book
 import com.example.ebook.data.model.Bookmark
+import com.example.ebook.data.model.Highlight
 import com.example.ebook.data.model.ReadingProgress
 import com.example.ebook.data.repository.BookRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,14 +13,25 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class ReaderTheme { DARK, LIGHT, SEPIA, OLED }
+
 data class ReaderUiState(
     val book: Book? = null,
     val currentPage: Int = 0,
     val totalPages: Int = 0,
     val fontSize: Int = 18,
-    val isNightMode: Boolean = false,
+    val readerTheme: ReaderTheme = ReaderTheme.DARK,
+    val isNightMode: Boolean = true,
     val isBookmarked: Boolean = false,
-    val showControls: Boolean = true
+    val showControls: Boolean = true,
+    val showAudioPlayer: Boolean = false,
+    val showToc: Boolean = false,
+    val showHighlightMenu: Boolean = false,
+    val isAudioPlaying: Boolean = false,
+    val audioProgress: Float = 0f,
+    val audioSpeed: Float = 1.0f,
+    val highlights: List<Highlight> = emptyList(),
+    val selectedHighlightColor: Long = 0xFFFFEB3B
 )
 
 @HiltViewModel
@@ -36,30 +48,19 @@ class ReaderViewModel @Inject constructor(
     init {
         loadBook()
         observeBookmark()
+        observeHighlights()
     }
 
     private fun loadBook() {
         val book = repository.getBookById(bookId)
         if (book != null) {
-            _uiState.update {
-                it.copy(
-                    book = book,
-                    totalPages = book.pages.size
-                )
-            }
+            _uiState.update { it.copy(book = book, totalPages = book.pages.size) }
         }
-
-        // Restore reading progress
         viewModelScope.launch {
             repository.getReadingProgress(bookId).collect { progress ->
                 if (progress != null) {
                     _uiState.update {
-                        it.copy(
-                            currentPage = progress.currentPage.coerceIn(0, it.totalPages - 1),
-                            fontSize = if (progress.chapter.startsWith("fontSize:")) {
-                                progress.chapter.removePrefix("fontSize:").toIntOrNull() ?: 18
-                            } else 18
-                        )
+                        it.copy(currentPage = progress.currentPage.coerceIn(0, it.totalPages - 1))
                     }
                 }
             }
@@ -76,6 +77,16 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    private fun observeHighlights() {
+        viewModelScope.launch {
+            _uiState.map { it.currentPage }.distinctUntilChanged().collect { page ->
+                repository.getHighlights(bookId, page).collect { highlights ->
+                    _uiState.update { it.copy(highlights = highlights) }
+                }
+            }
+        }
+    }
+
     fun goToPage(page: Int) {
         val totalPages = _uiState.value.totalPages
         if (page in 0 until totalPages) {
@@ -84,32 +95,53 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    fun nextPage() {
-        goToPage(_uiState.value.currentPage + 1)
-    }
+    fun nextPage() = goToPage(_uiState.value.currentPage + 1)
+    fun previousPage() = goToPage(_uiState.value.currentPage - 1)
 
-    fun previousPage() {
-        goToPage(_uiState.value.currentPage - 1)
-    }
-
-    fun increaseFontSize() {
-        _uiState.update {
-            it.copy(fontSize = (it.fontSize + 2).coerceAtMost(32))
-        }
-    }
-
-    fun decreaseFontSize() {
-        _uiState.update {
-            it.copy(fontSize = (it.fontSize - 2).coerceAtLeast(12))
-        }
-    }
+    fun increaseFontSize() = _uiState.update { it.copy(fontSize = (it.fontSize + 2).coerceAtMost(32)) }
+    fun decreaseFontSize() = _uiState.update { it.copy(fontSize = (it.fontSize - 2).coerceAtLeast(12)) }
 
     fun toggleNightMode() {
-        _uiState.update { it.copy(isNightMode = !it.isNightMode) }
+        val next = when (_uiState.value.readerTheme) {
+            ReaderTheme.DARK -> ReaderTheme.LIGHT
+            ReaderTheme.LIGHT -> ReaderTheme.SEPIA
+            ReaderTheme.SEPIA -> ReaderTheme.OLED
+            ReaderTheme.OLED -> ReaderTheme.DARK
+        }
+        _uiState.update { it.copy(readerTheme = next, isNightMode = next == ReaderTheme.DARK || next == ReaderTheme.OLED) }
     }
 
-    fun toggleControls() {
-        _uiState.update { it.copy(showControls = !it.showControls) }
+    fun setReaderTheme(theme: ReaderTheme) {
+        _uiState.update { it.copy(readerTheme = theme, isNightMode = theme == ReaderTheme.DARK || theme == ReaderTheme.OLED) }
+    }
+
+    fun toggleControls() = _uiState.update { it.copy(showControls = !it.showControls) }
+
+    fun toggleAudioPlayer() = _uiState.update { it.copy(showAudioPlayer = !it.showAudioPlayer) }
+
+    fun toggleToc() = _uiState.update { it.copy(showToc = !it.showToc) }
+
+    fun toggleAudioPlayback() = _uiState.update { it.copy(isAudioPlaying = !it.isAudioPlaying) }
+
+    fun setAudioSpeed(speed: Float) = _uiState.update { it.copy(audioSpeed = speed) }
+
+    fun setAudioProgress(progress: Float) = _uiState.update { it.copy(audioProgress = progress) }
+
+    fun setHighlightColor(colorHex: Long) = _uiState.update { it.copy(selectedHighlightColor = colorHex) }
+
+    fun addHighlight(startIndex: Int, endIndex: Int) {
+        viewModelScope.launch {
+            val state = _uiState.value
+            repository.addHighlight(
+                Highlight(
+                    bookId = bookId,
+                    page = state.currentPage,
+                    startIndex = startIndex,
+                    endIndex = endIndex,
+                    colorHex = state.selectedHighlightColor
+                )
+            )
+        }
     }
 
     fun toggleBookmark() {
@@ -119,9 +151,7 @@ class ReaderViewModel @Inject constructor(
                 repository.getBookmarks(bookId).first().find { it.page == state.currentPage }
                     ?.let { repository.removeBookmark(it) }
             } else {
-                repository.addBookmark(
-                    Bookmark(bookId = bookId, page = state.currentPage)
-                )
+                repository.addBookmark(Bookmark(bookId = bookId, page = state.currentPage))
             }
         }
     }
@@ -134,7 +164,7 @@ class ReaderViewModel @Inject constructor(
                     bookId = bookId,
                     currentPage = state.currentPage,
                     totalPages = state.totalPages,
-                    chapter = "fontSize:${state.fontSize}",
+                    chapter = "فصل ${state.currentPage + 1}",
                     lastReadTimestamp = System.currentTimeMillis()
                 )
             )
