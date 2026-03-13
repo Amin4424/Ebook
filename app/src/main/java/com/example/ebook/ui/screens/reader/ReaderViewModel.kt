@@ -1,5 +1,8 @@
 package com.example.ebook.ui.screens.reader
 
+import android.content.Context
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,8 +12,13 @@ import com.example.ebook.data.model.Highlight
 import com.example.ebook.data.model.ReadingProgress
 import com.example.ebook.data.repository.BookRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
 
 enum class ReaderTheme { DARK, LIGHT, SEPIA, OLED }
@@ -28,16 +36,22 @@ data class ReaderUiState(
     val showToc: Boolean = false,
     val showHighlightMenu: Boolean = false,
     val isAudioPlaying: Boolean = false,
+    val isTtsReady: Boolean = false,
     val audioProgress: Float = 0f,
     val audioSpeed: Float = 1.0f,
     val highlights: List<Highlight> = emptyList(),
-    val selectedHighlightColor: Long = 0xFFFFEB3B
+    val selectedHighlightColor: Long = 0xFFFFEB3B,
+    val autoScrollEnabled: Boolean = false,
+    val autoScrollSpeed: Float = 1.0f,
+    val showQuoteShare: Boolean = false,
+    val selectedQuoteText: String = ""
 )
 
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
     private val repository: BookRepository,
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val bookId: Int = savedStateHandle.get<Int>("bookId") ?: 1
@@ -45,18 +59,40 @@ class ReaderViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ReaderUiState())
     val uiState: StateFlow<ReaderUiState> = _uiState.asStateFlow()
 
+    private var tts: TextToSpeech? = null
+    private var autoScrollJob: Job? = null
+
     init {
         loadBook()
         observeBookmark()
         observeHighlights()
+        initTts()
+    }
+
+    private fun initTts() {
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale("fa")
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+                    override fun onDone(utteranceId: String?) {
+                        _uiState.update { it.copy(isAudioPlaying = false) }
+                    }
+                    override fun onError(utteranceId: String?) {
+                        _uiState.update { it.copy(isAudioPlaying = false) }
+                    }
+                })
+                _uiState.update { it.copy(isTtsReady = true) }
+            }
+        }
     }
 
     private fun loadBook() {
-        val book = repository.getBookById(bookId)
-        if (book != null) {
-            _uiState.update { it.copy(book = book, totalPages = book.pages.size) }
-        }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            val book = repository.getBookById(bookId)
+            if (book != null) {
+                _uiState.update { it.copy(book = book, totalPages = book.pages.size) }
+            }
             repository.getReadingProgress(bookId).collect { progress ->
                 if (progress != null) {
                     _uiState.update {
@@ -117,13 +153,29 @@ class ReaderViewModel @Inject constructor(
 
     fun toggleControls() = _uiState.update { it.copy(showControls = !it.showControls) }
 
-    fun toggleAudioPlayer() = _uiState.update { it.copy(showAudioPlayer = !it.showAudioPlayer) }
+    fun toggleAudioPlayer() {
+        _uiState.update { it.copy(showAudioPlayer = !it.showAudioPlayer) }
+    }
 
     fun toggleToc() = _uiState.update { it.copy(showToc = !it.showToc) }
 
-    fun toggleAudioPlayback() = _uiState.update { it.copy(isAudioPlaying = !it.isAudioPlaying) }
+    fun toggleAudioPlayback() {
+        val state = _uiState.value
+        if (state.isAudioPlaying) {
+            tts?.stop()
+            _uiState.update { it.copy(isAudioPlaying = false) }
+        } else {
+            val pageText = state.book?.pages?.getOrNull(state.currentPage) ?: return
+            tts?.setSpeechRate(state.audioSpeed)
+            tts?.speak(pageText, TextToSpeech.QUEUE_FLUSH, null, "page_${state.currentPage}")
+            _uiState.update { it.copy(isAudioPlaying = true) }
+        }
+    }
 
-    fun setAudioSpeed(speed: Float) = _uiState.update { it.copy(audioSpeed = speed) }
+    fun setAudioSpeed(speed: Float) {
+        tts?.setSpeechRate(speed)
+        _uiState.update { it.copy(audioSpeed = speed) }
+    }
 
     fun setAudioProgress(progress: Float) = _uiState.update { it.copy(audioProgress = progress) }
 
@@ -156,6 +208,32 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    fun setAutoScroll(enabled: Boolean) {
+        _uiState.update { it.copy(autoScrollEnabled = enabled) }
+        autoScrollJob?.cancel()
+        if (enabled) {
+            autoScrollJob = viewModelScope.launch {
+                while (true) {
+                    val delayMs = (10000L / _uiState.value.autoScrollSpeed).toLong()
+                    delay(delayMs)
+                    val state = _uiState.value
+                    if (state.autoScrollEnabled && state.currentPage < state.totalPages - 1) {
+                        nextPage()
+                    } else {
+                        _uiState.update { it.copy(autoScrollEnabled = false) }
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    fun setAutoScrollSpeed(speed: Float) = _uiState.update { it.copy(autoScrollSpeed = speed) }
+
+    fun setQuoteText(text: String) = _uiState.update { it.copy(selectedQuoteText = text, showQuoteShare = text.isNotBlank()) }
+
+    fun dismissQuoteShare() = _uiState.update { it.copy(showQuoteShare = false, selectedQuoteText = "") }
+
     private fun saveProgress() {
         viewModelScope.launch {
             val state = _uiState.value
@@ -169,5 +247,12 @@ class ReaderViewModel @Inject constructor(
                 )
             )
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        tts?.stop()
+        tts?.shutdown()
+        autoScrollJob?.cancel()
     }
 }

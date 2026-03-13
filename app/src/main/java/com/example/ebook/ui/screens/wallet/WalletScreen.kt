@@ -1,10 +1,12 @@
 package com.example.ebook.ui.screens.wallet
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -45,6 +47,14 @@ fun WalletScreen(
             item { ActionButtons() }
             item { CoinPackagesSection(packages = uiState.packages) }
             item { ReadingStreakSection(streak = uiState.readingStreak, goal = uiState.streakGoal, weekDays = uiState.weekDays) }
+            item { AchievementsSection(achievements = uiState.achievements) }
+            item {
+                CloudSyncSection(
+                    isSyncing = uiState.isSyncing,
+                    syncSuccess = uiState.syncSuccess,
+                    onSync = viewModel::simulateSync
+                )
+            }
             item { TransactionHistorySection(transactions = uiState.transactions) }
         }
     }
@@ -297,6 +307,134 @@ private fun TransactionItem(transaction: Transaction) {
                 tint = if (transaction.isDeposit) SuccessGreen else ErrorRed,
                 modifier = Modifier.size(20.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun AchievementsSection(achievements: List<Achievement>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = "دستاوردها",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            color = TextOnDark,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            textAlign = TextAlign.End
+        )
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(achievements, key = { it.id }) { ach ->
+                AchievementCard(achievement = ach)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AchievementCard(achievement: Achievement) {
+    Card(
+        modifier = androidx.compose.ui.Modifier.width(120.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (achievement.isUnlocked) Gold400.copy(alpha = 0.15f)
+            else DarkSurface
+        ),
+        border = if (achievement.isUnlocked) androidx.compose.foundation.BorderStroke(1.dp, Gold400.copy(alpha = 0.5f)) else null
+    ) {
+        Column(
+            modifier = androidx.compose.ui.Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = achievement.icon,
+                style = MaterialTheme.typography.headlineMedium,
+                color = if (achievement.isUnlocked) Gold400 else TextOnDarkSecondary.copy(alpha = 0.4f)
+            )
+            Text(
+                text = achievement.title,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = if (achievement.isUnlocked) Gold300 else TextOnDarkSecondary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Text(
+                text = achievement.description,
+                style = MaterialTheme.typography.labelSmall,
+                color = TextOnDarkSecondary.copy(alpha = if (achievement.isUnlocked) 0.7f else 0.4f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                maxLines = 2
+            )
+        }
+    }
+}
+
+@Composable
+private fun CloudSyncSection(
+    isSyncing: Boolean,
+    syncSuccess: Boolean?,
+    onSync: () -> Unit
+) {
+    Card(
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface)
+    ) {
+        Row(
+            modifier = androidx.compose.ui.Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Button(
+                onClick = onSync,
+                enabled = !isSyncing,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Gold500, contentColor = Navy900)
+            ) {
+                if (isSyncing) {
+                    CircularProgressIndicator(
+                        modifier = androidx.compose.ui.Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = Navy900
+                    )
+                } else {
+                    Icon(imageVector = Icons.Filled.Sync, contentDescription = null, modifier = androidx.compose.ui.Modifier.size(16.dp))
+                }
+                Spacer(modifier = androidx.compose.ui.Modifier.width(6.dp))
+                Text(
+                    text = if (isSyncing) "در حال همگام‌سازی..." else "همگام‌سازی",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+            Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (syncSuccess == true) {
+                        Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null, tint = SuccessGreen, modifier = androidx.compose.ui.Modifier.size(16.dp))
+                    }
+                    Text(
+                        text = "پشتیبان‌گیری ابری",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = TextOnDark
+                    )
+                }
+                Text(
+                    text = if (syncSuccess == true) "آخرین همگام‌سازی: همین الان" else "پیشرفت خواندن را ذخیره کن",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (syncSuccess == true) SuccessGreen else TextOnDarkSecondary
+                )
+            }
         }
     }
 }

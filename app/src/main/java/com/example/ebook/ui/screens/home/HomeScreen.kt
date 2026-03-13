@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,6 +31,7 @@ import com.example.ebook.data.model.Book
 import com.example.ebook.data.model.ReadingProgress
 import com.example.ebook.ui.components.BookCard
 import com.example.ebook.ui.components.BottomNavBar
+import androidx.compose.ui.window.Dialog
 import com.example.ebook.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,7 +42,8 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val isSearchActive = uiState.searchQuery.isNotBlank()
+    val filteredBooks by viewModel.filteredBooks.collectAsState()
+    val isSearchActive by remember { derivedStateOf { uiState.searchQuery.isNotBlank() } }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -65,7 +68,7 @@ fun HomeScreen(
             if (isSearchActive) {
                 item {
                     Text(
-                        text = "نتایج جستجو (${uiState.filteredBooks.size})",
+                        text = "نتایج جستجو (${filteredBooks.size})",
                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier
@@ -74,7 +77,7 @@ fun HomeScreen(
                         textAlign = TextAlign.End
                     )
                 }
-                if (uiState.filteredBooks.isEmpty()) {
+                if (filteredBooks.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier
@@ -91,7 +94,7 @@ fun HomeScreen(
                         }
                     }
                 } else {
-                    items(uiState.filteredBooks) { book ->
+                    items(filteredBooks, key = { it.id }) { book ->
                         BookListItem(book = book, onClick = { onBookClick(book.id) })
                     }
                 }
@@ -101,6 +104,14 @@ fun HomeScreen(
                         minutesRead = uiState.totalMinutesRead,
                         booksFinished = uiState.totalBooksFinished,
                         streakDays = uiState.readingStreakDays
+                    )
+                }
+
+                item {
+                    DailyGoalSection(
+                        goalPages = uiState.dailyGoalPages,
+                        pagesReadToday = uiState.pagesReadToday,
+                        onEditGoal = { viewModel.showGoalDialog(true) }
                     )
                 }
 
@@ -120,15 +131,57 @@ fun HomeScreen(
                         contentPadding = PaddingValues(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(uiState.featuredBooks) { book ->
+                        items(uiState.featuredBooks, key = { it.id }) { book ->
                             BookCard(book = book, onClick = { onBookClick(book.id) })
                         }
                     }
                 }
 
                 item { SectionHeader(title = "پیشنهاد ما", actionText = "مشاهده همه") }
-                items(uiState.allBooks.take(4)) { book ->
+                items(uiState.allBooks.take(4), key = { it.id }) { book ->
                     BookListItem(book = book, onClick = { onBookClick(book.id) })
+                }
+            }
+        }
+    }
+
+    // Daily goal dialog
+    if (uiState.showGoalDialog) {
+        Dialog(onDismissRequest = { viewModel.showGoalDialog(false) }) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        text = "هدف روزانه مطالعه",
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = uiState.goalInputText,
+                        onValueChange = viewModel::updateGoalInput,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("تعداد صفحات در روز", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) },
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold500)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                        TextButton(onClick = { viewModel.showGoalDialog(false) }) { Text("انصراف") }
+                        Button(
+                            onClick = viewModel::saveGoal,
+                            colors = ButtonDefaults.buttonColors(containerColor = Gold500, contentColor = Navy900),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("ذخیره", fontWeight = FontWeight.Bold) }
+                    }
                 }
             }
         }
@@ -491,6 +544,90 @@ private fun BookListItem(book: Book, onClick: () -> Unit) {
                     .clip(RoundedCornerShape(12.dp)),
                 contentScale = ContentScale.Crop
             )
+        }
+    }
+}
+
+@Composable
+private fun DailyGoalSection(
+    goalPages: Int,
+    pagesReadToday: Int,
+    onEditGoal: () -> Unit
+) {
+    val progress = if (goalPages > 0) (pagesReadToday.toFloat() / goalPages).coerceIn(0f, 1f) else 0f
+    val isGoalMet = pagesReadToday >= goalPages
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isGoalMet) SuccessGreen.copy(alpha = 0.15f)
+            else MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onEditGoal,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "ویرایش هدف",
+                        tint = Gold500,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "هدف روزانه",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (isGoalMet) {
+                        Icon(imageVector = Icons.Filled.EmojiEvents, contentDescription = null, tint = Gold400, modifier = Modifier.size(22.dp))
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = if (isGoalMet) SuccessGreen else Gold400,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = if (isGoalMet) "✓ هدف محقق شد!" else "${goalPages - pagesReadToday} صفحه تا هدف",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isGoalMet) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "$pagesReadToday / $goalPages صفحه",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
     }
 }
