@@ -1,0 +1,51 @@
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Gradle files
+.gradle/
+build/
+*/build/
+
+# IDE files
+.idea/
+.vscode/
+
+# NDK
+obj/
+
+# IntelliJ
+*.iml
+*.iws
+
+# Mac
+.DS_Store
+
+# Log Files
+*.log
+
+# Keystore files
+*.jks
+*.keystore
+
+# Google Services
+google-services.json
+
+# Navigation
+.navigation/
+
+# Testing
+*.pb
+*.gcno
+*.gcda
+
+# KSP generated code
+**/build/generated/ksp/
+
+# Hilt generated code
+**/build/generated/hilt/
