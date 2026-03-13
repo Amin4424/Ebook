@@ -45,6 +45,13 @@ class BookDetailsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(BookDetailsUiState())
     val uiState: StateFlow<BookDetailsUiState> = _uiState.asStateFlow()
 
+    // Declared before init so it's initialized before any coroutine can access it
+    private val chapterNames = listOf(
+        "فصل اول: آشنایی", "فصل دوم: پرده نقاشی", "فصل سوم: جستجو",
+        "فصل چهارم: راز چشم‌ها", "فصل پنجم: دیدار", "فصل ششم: اعتراف",
+        "فصل هفتم: بازگشت", "فصل هشتم: حقیقت"
+    )
+
     init {
         loadBook()
         loadReviews()
@@ -116,10 +123,4 @@ class BookDetailsViewModel @Inject constructor(
         }
         _uiState.update { it.copy(userReviewText = "", userReviewStars = 5, showReviewDialog = false) }
     }
-
-    private val chapterNames = listOf(
-        "فصل اول: آشنایی", "فصل دوم: پرده نقاشی", "فصل سوم: جستجو",
-        "فصل چهارم: راز چشم‌ها", "فصل پنجم: دیدار", "فصل ششم: اعتراف",
-        "فصل هفتم: بازگشت", "فصل هشتم: حقیقت"
-    )
 }
