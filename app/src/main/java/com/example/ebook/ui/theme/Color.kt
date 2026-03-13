@@ -32,3 +32,20 @@ val TextOnDarkSecondary = Color(0xFFA0A0A0)
 val SuccessGreen = Color(0xFF4CAF50)
 val WarningOrange = Color(0xFFFF9800)
 val ErrorRed = Color(0xFFE53935)
+
+// Sepia Reader Mode
+val SepiaBackground = Color(0xFFF5E6C8)
+val SepiaSurface = Color(0xFFEDD9B5)
+val SepiaText = Color(0xFF5B4636)
+val SepiaSecondary = Color(0xFF8B7355)
+
+// OLED Black Reader Mode
+val OledBackground = Color(0xFF000000)
+val OledSurface = Color(0xFF0A0A0A)
+val OledText = Color(0xFFD0D0D0)
+val OledSecondary = Color(0xFF707070)
+
+// Highlight Colors
+val HighlightYellow = Color(0xFFFFEB3B)
+val HighlightGreen = Color(0xFF81C784)
+val HighlightPink = Color(0xFFF48FB1)

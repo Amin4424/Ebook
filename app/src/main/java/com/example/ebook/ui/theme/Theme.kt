@@ -1,9 +1,13 @@
 package com.example.ebook.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.staticCompositionLocalOf
+
+enum class ThemeMode { Light, Dark, System }
+
+val LocalThemeMode = staticCompositionLocalOf { mutableStateOf(ThemeMode.System) }
 
 private val LightColorScheme = lightColorScheme(
     primary = Navy800,
@@ -48,9 +52,15 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun EBookTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.System,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val useDark = when (themeMode) {
+        ThemeMode.Light -> false
+        ThemeMode.Dark -> true
+        ThemeMode.System -> darkTheme
+    }
+    val colorScheme = if (useDark) DarkColorScheme else LightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,
