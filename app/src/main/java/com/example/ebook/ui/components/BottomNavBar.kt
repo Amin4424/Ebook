@@ -1,24 +1,16 @@
 package com.example.ebook.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -41,7 +33,7 @@ fun BottomNavBar(
     val items = listOf(
         BottomNavItem("خانه", Screen.Home.route, Icons.Filled.Home, Icons.Outlined.Home),
         BottomNavItem("کاوش", Screen.Category.route, Icons.Filled.Explore, Icons.Outlined.Explore),
-        BottomNavItem("دسته‌بندی", Screen.Category.route, Icons.Filled.Category, Icons.Outlined.Category),
+        BottomNavItem("کتاب‌هایم", Screen.Library.route, Icons.Filled.LibraryBooks, Icons.Outlined.LibraryBooks),
         BottomNavItem("کیف پول", Screen.Wallet.route, Icons.Filled.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet),
     )
 
@@ -63,7 +55,6 @@ fun BottomNavBar(
             items.forEachIndexed { index, item ->
                 val isSelected = currentRoute == item.route
                 if (index == 0) {
-                    // Home button is special - highlighted with gold circle
                     FloatingActionButton(
                         onClick = {
                             if (currentRoute != item.route) {
@@ -104,10 +95,7 @@ fun BottomNavBar(
                             )
                         },
                         label = {
-                            Text(
-                                text = item.label,
-                                style = MaterialTheme.typography.labelSmall
-                            )
+                            Text(text = item.label, style = MaterialTheme.typography.labelSmall)
                         },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Gold500,

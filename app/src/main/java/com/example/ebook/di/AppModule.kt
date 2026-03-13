@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.ebook.data.local.BookmarkDao
 import com.example.ebook.data.local.EBookDatabase
+import com.example.ebook.data.local.HighlightDao
 import com.example.ebook.data.local.ReadingProgressDao
 import dagger.Module
 import dagger.Provides
@@ -23,7 +24,7 @@ object AppModule {
             context,
             EBookDatabase::class.java,
             "ebook_database"
-        ).build()
+        ).fallbackToDestructiveMigration().build()
     }
 
     @Provides
@@ -34,5 +35,10 @@ object AppModule {
     @Provides
     fun provideBookmarkDao(database: EBookDatabase): BookmarkDao {
         return database.bookmarkDao()
+    }
+
+    @Provides
+    fun provideHighlightDao(database: EBookDatabase): HighlightDao {
+        return database.highlightDao()
     }
 }

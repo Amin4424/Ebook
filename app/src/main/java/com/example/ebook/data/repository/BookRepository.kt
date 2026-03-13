@@ -2,10 +2,12 @@ package com.example.ebook.data.repository
 
 import com.example.ebook.data.SampleData
 import com.example.ebook.data.local.BookmarkDao
+import com.example.ebook.data.local.HighlightDao
 import com.example.ebook.data.local.ReadingProgressDao
 import com.example.ebook.data.model.Book
 import com.example.ebook.data.model.Bookmark
 import com.example.ebook.data.model.Category
+import com.example.ebook.data.model.Highlight
 import com.example.ebook.data.model.ReadingProgress
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -14,7 +16,8 @@ import javax.inject.Singleton
 @Singleton
 class BookRepository @Inject constructor(
     private val readingProgressDao: ReadingProgressDao,
-    private val bookmarkDao: BookmarkDao
+    private val bookmarkDao: BookmarkDao,
+    private val highlightDao: HighlightDao
 ) {
 
     fun getAllBooks(): List<Book> = SampleData.sampleBooks
@@ -27,6 +30,12 @@ class BookRepository @Inject constructor(
 
     fun getBooksByCategory(categoryId: Int): List<Book> =
         SampleData.sampleBooks.filter { it.categoryId == categoryId }
+
+    fun searchBooks(query: String): List<Book> =
+        SampleData.sampleBooks.filter {
+            it.title.contains(query, ignoreCase = true) ||
+                    it.author.contains(query, ignoreCase = true)
+        }
 
     // Reading Progress
     fun getReadingProgress(bookId: Int): Flow<ReadingProgress?> =
@@ -53,4 +62,17 @@ class BookRepository @Inject constructor(
 
     fun isBookmarked(bookId: Int, page: Int): Flow<Boolean> =
         bookmarkDao.isBookmarked(bookId, page)
+
+    // Highlights
+    fun getHighlights(bookId: Int, page: Int): Flow<List<Highlight>> =
+        highlightDao.getHighlights(bookId, page)
+
+    fun getAllHighlights(bookId: Int): Flow<List<Highlight>> =
+        highlightDao.getAllHighlights(bookId)
+
+    suspend fun addHighlight(highlight: Highlight) =
+        highlightDao.addHighlight(highlight)
+
+    suspend fun removeHighlight(highlight: Highlight) =
+        highlightDao.removeHighlight(highlight)
 }

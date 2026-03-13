@@ -17,13 +17,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
@@ -41,6 +40,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isSearchActive = uiState.searchQuery.isNotBlank()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -52,70 +52,168 @@ fun HomeScreen(
                 .padding(paddingValues),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            // Header with user greeting
-            item {
-                HomeHeader()
-            }
+            item { HomeHeader() }
 
-            // Search Bar
             item {
-                SearchBar(
+                SearchBarField(
                     query = uiState.searchQuery,
                     onQueryChange = viewModel::updateSearchQuery,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
                 )
             }
 
-            // Continue Reading Card
-            item {
-                uiState.continueReading?.let { (book, progress) ->
-                    ContinueReadingSection(
-                        book = book,
-                        progress = progress,
-                        onClick = { onBookClick(book.id) }
-                    )
-                } ?: run {
-                    // Show a placeholder continue reading with sample data
-                    ContinueReadingPlaceholder(
-                        onBookClick = onBookClick
+            if (isSearchActive) {
+                item {
+                    Text(
+                        text = "نتایج جستجو (${uiState.filteredBooks.size})",
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier
+                            .padding(horizontal = 20.dp, vertical = 8.dp)
+                            .fillMaxWidth(),
+                        textAlign = TextAlign.End
                     )
                 }
-            }
-
-            // Featured / Most Visited Section
-            item {
-                SectionHeader(
-                    title = "پربازدیدترین‌ها",
-                    actionText = "مشاهده همه"
-                )
-            }
-            item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(uiState.featuredBooks) { book ->
-                        BookCard(
-                            book = book,
-                            onClick = { onBookClick(book.id) }
-                        )
+                if (uiState.filteredBooks.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "کتابی با این مشخصات یافت نشد",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    items(uiState.filteredBooks) { book ->
+                        BookListItem(book = book, onClick = { onBookClick(book.id) })
                     }
                 }
-            }
+            } else {
+                item {
+                    ReadingStatsDashboard(
+                        minutesRead = uiState.totalMinutesRead,
+                        booksFinished = uiState.totalBooksFinished,
+                        streakDays = uiState.readingStreakDays
+                    )
+                }
 
-            // Our Suggestions Section
-            item {
-                SectionHeader(
-                    title = "پیشنهاد ما",
-                    actionText = "مشاهده همه"
-                )
+                item {
+                    uiState.continueReading?.let { (book, progress) ->
+                        ContinueReadingSection(
+                            book = book,
+                            progress = progress,
+                            onClick = { onBookClick(book.id) }
+                        )
+                    } ?: ContinueReadingPlaceholder(onBookClick = onBookClick)
+                }
+
+                item { SectionHeader(title = "پربازدیدترین‌ها", actionText = "مشاهده همه") }
+                item {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(uiState.featuredBooks) { book ->
+                            BookCard(book = book, onClick = { onBookClick(book.id) })
+                        }
+                    }
+                }
+
+                item { SectionHeader(title = "پیشنهاد ما", actionText = "مشاهده همه") }
+                items(uiState.allBooks.take(4)) { book ->
+                    BookListItem(book = book, onClick = { onBookClick(book.id) })
+                }
             }
-            items(uiState.allBooks.take(4)) { book ->
-                BookListItem(
-                    book = book,
-                    onClick = { onBookClick(book.id) }
-                )
-            }
+        }
+    }
+}
+
+@Composable
+private fun ReadingStatsDashboard(
+    minutesRead: Int,
+    booksFinished: Int,
+    streakDays: Int
+) {
+    val hours = minutesRead / 60
+    val mins = minutesRead % 60
+
+    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+        Text(
+            text = "آمار مطالعه",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.End
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            StatCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.Schedule,
+                value = "${hours}h ${mins}m",
+                label = "زمان مطالعه",
+                accent = Gold400
+            )
+            StatCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.CheckCircle,
+                value = "$booksFinished",
+                label = "کتاب خوانده",
+                accent = SuccessGreen
+            )
+            StatCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.LocalFireDepartment,
+                value = "$streakDays روز",
+                label = "زنجیره",
+                accent = WarningOrange
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatCard(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    value: String,
+    label: String,
+    accent: androidx.compose.ui.graphics.Color
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = accent, modifier = Modifier.size(24.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
@@ -129,7 +227,6 @@ private fun HomeHeader() {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Notification icon
         IconButton(
             onClick = { },
             modifier = Modifier
@@ -144,9 +241,7 @@ private fun HomeHeader() {
             )
         }
 
-        Column(
-            horizontalAlignment = Alignment.End
-        ) {
+        Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = "خوش برگشتی!",
                 style = MaterialTheme.typography.bodyMedium,
@@ -154,9 +249,7 @@ private fun HomeHeader() {
             )
             Text(
                 text = "سارا احمدی",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold
-                ),
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onBackground
             )
         }
@@ -180,7 +273,7 @@ private fun HomeHeader() {
 }
 
 @Composable
-private fun SearchBar(
+private fun SearchBarField(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -193,15 +286,18 @@ private fun SearchBar(
             Text(
                 text = "جستجوی کتاب، نویسنده...",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
         leadingIcon = {
-            Icon(
-                imageVector = Icons.Filled.Search,
-                contentDescription = "جستجو",
-                tint = TextSecondary
-            )
+            Icon(imageVector = Icons.Filled.Search, contentDescription = "جستجو", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        trailingIcon = {
+            if (query.isNotBlank()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Filled.Close, contentDescription = "پاک کردن", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         },
         shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
@@ -220,9 +316,7 @@ private fun ContinueReadingSection(
     progress: ReadingProgress,
     onClick: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-    ) {
+    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
         Text(
             text = "ادامه مطالعه",
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
@@ -232,7 +326,6 @@ private fun ContinueReadingSection(
                 .padding(bottom = 12.dp),
             textAlign = TextAlign.End
         )
-
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -270,26 +363,17 @@ private fun ContinueReadingSection(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "${progress.chapter} - صفحه ${progress.currentPage}",
+                            text = "صفحه ${progress.currentPage}",
                             style = MaterialTheme.typography.bodySmall,
                             color = Gold300,
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Outlined.Bookmark,
-                            contentDescription = null,
-                            tint = Gold400,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Icon(imageVector = Icons.Outlined.Bookmark, contentDescription = null, tint = Gold400, modifier = Modifier.size(16.dp))
                     }
-
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    // Progress bar
                     LinearProgressIndicator(
                         progress = {
-                            if (progress.totalPages > 0) progress.currentPage.toFloat() / progress.totalPages
-                            else 0f
+                            if (progress.totalPages > 0) progress.currentPage.toFloat() / progress.totalPages else 0f
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -298,17 +382,14 @@ private fun ContinueReadingSection(
                         color = Gold400,
                         trackColor = Navy600,
                     )
-
                     Text(
-                        text = "${progress.totalPages} خوانده شده",
+                        text = "${progress.totalPages} صفحه کل",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextOnDarkSecondary,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
-
                 Spacer(modifier = Modifier.width(16.dp))
-
                 AsyncImage(
                     model = book.coverUrl,
                     contentDescription = book.title,
@@ -324,26 +405,13 @@ private fun ContinueReadingSection(
 
 @Composable
 private fun ContinueReadingPlaceholder(onBookClick: (Int) -> Unit) {
-    // Show sample continue reading with first book
     val sampleBook = com.example.ebook.data.SampleData.sampleBooks.first()
-    val sampleProgress = ReadingProgress(
-        bookId = sampleBook.id,
-        currentPage = 83,
-        totalPages = 452,
-        chapter = "فصل ۴"
-    )
-    ContinueReadingSection(
-        book = sampleBook,
-        progress = sampleProgress,
-        onClick = { onBookClick(sampleBook.id) }
-    )
+    val sampleProgress = ReadingProgress(bookId = sampleBook.id, currentPage = 83, totalPages = 452, chapter = "فصل ۴")
+    ContinueReadingSection(book = sampleBook, progress = sampleProgress, onClick = { onBookClick(sampleBook.id) })
 }
 
 @Composable
-private fun SectionHeader(
-    title: String,
-    actionText: String = ""
-) {
+private fun SectionHeader(title: String, actionText: String = "") {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -352,12 +420,7 @@ private fun SectionHeader(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         if (actionText.isNotEmpty()) {
-            Text(
-                text = actionText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Gold500,
-                modifier = Modifier.clickable { }
-            )
+            Text(text = actionText, style = MaterialTheme.typography.bodyMedium, color = Gold500, modifier = Modifier.clickable { })
         }
         Text(
             text = title,
@@ -368,10 +431,7 @@ private fun SectionHeader(
 }
 
 @Composable
-private fun BookListItem(
-    book: Book,
-    onClick: () -> Unit
-) {
+private fun BookListItem(book: Book, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -387,11 +447,7 @@ private fun BookListItem(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Book info (RTL: text on right)
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.End
-            ) {
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -417,25 +473,16 @@ private fun BookListItem(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.End,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                     TextButton(
                         onClick = onClick,
                         colors = ButtonDefaults.textButtonColors(contentColor = Gold500)
                     ) {
-                        Text(
-                            text = "بیشتر",
-                            style = MaterialTheme.typography.labelLarge
-                        )
+                        Text(text = "بیشتر", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
-            // Cover
             AsyncImage(
                 model = book.coverUrl,
                 contentDescription = book.title,
