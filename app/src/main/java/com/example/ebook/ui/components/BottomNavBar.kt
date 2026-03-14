@@ -14,13 +14,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.ebook.navigation.Screen
 import com.example.ebook.ui.theme.*
+import kotlin.reflect.KClass
 
-data class BottomNavItem(
+data class BottomNavItem<T : Any>(
     val label: String,
-    val route: String,
+    val route: T,
+    val routeClass: KClass<T>,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 )
@@ -31,13 +35,15 @@ fun BottomNavBar(
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
-        BottomNavItem("خانه", Screen.Home.route, Icons.Filled.Home, Icons.Outlined.Home),
-        BottomNavItem("کاوش", Screen.Category.route, Icons.Filled.Explore, Icons.Outlined.Explore),
-        BottomNavItem("کتاب‌هایم", Screen.Library.route, Icons.Filled.LibraryBooks, Icons.Outlined.LibraryBooks),
-        BottomNavItem("کیف پول", Screen.Wallet.route, Icons.Filled.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet),
+        BottomNavItem("خانه", Screen.Home, Screen.Home::class, Icons.Filled.Home, Icons.Outlined.Home),
+        BottomNavItem("کاوش", Screen.Category, Screen.Category::class, Icons.Filled.Explore, Icons.Outlined.Explore),
+        BottomNavItem("انجمن", Screen.Community, Screen.Community::class, Icons.Filled.People, Icons.Outlined.PeopleOutline),
+        BottomNavItem("کتاب‌هایم", Screen.Library, Screen.Library::class, Icons.Filled.LibraryBooks, Icons.Outlined.LibraryBooks),
+        BottomNavItem("کیف پول", Screen.Wallet, Screen.Wallet::class, Icons.Filled.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet),
     )
 
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val navBackStackEntry = navController.currentBackStackEntryAsState().value
+    val currentDestination = navBackStackEntry?.destination
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -53,14 +59,15 @@ fun BottomNavBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEachIndexed { index, item ->
-                val isSelected = currentRoute == item.route
+                val isSelected = currentDestination?.hierarchy?.any { it.hasRoute(item.routeClass) } == true
                 if (index == 0) {
                     FloatingActionButton(
                         onClick = {
-                            if (currentRoute != item.route) {
+                            if (!isSelected) {
                                 navController.navigate(item.route) {
-                                    popUpTo(Screen.Home.route) { inclusive = false }
+                                    popUpTo(Screen.Home) { saveState = true }
                                     launchSingleTop = true
+                                    restoreState = true
                                 }
                             }
                         },
@@ -80,10 +87,11 @@ fun BottomNavBar(
                     NavigationBarItem(
                         selected = isSelected,
                         onClick = {
-                            if (currentRoute != item.route) {
+                            if (!isSelected) {
                                 navController.navigate(item.route) {
-                                    popUpTo(Screen.Home.route) { inclusive = false }
+                                    popUpTo(Screen.Home) { saveState = true }
                                     launchSingleTop = true
+                                    restoreState = true
                                 }
                             }
                         },
@@ -110,3 +118,4 @@ fun BottomNavBar(
         }
     }
 }
+

@@ -52,6 +52,16 @@ fun ReaderScreen(
     val backgroundColor = readerColors.background
     val textColor = readerColors.text
     val surfaceColor = readerColors.surface
+
+    // AI Chat Bottom Sheet
+    if (uiState.isChatOpen) {
+        ChatBottomSheet(
+            messages = uiState.chatMessages,
+            isLoading = uiState.isChatLoading,
+            onDismiss = { viewModel.toggleChat() },
+            onSendMessage = { viewModel.sendChatMessage(it) }
+        )
+    }
     val secondaryTextColor = readerColors.secondaryText
 
     // Table of Contents chapters based on book pages

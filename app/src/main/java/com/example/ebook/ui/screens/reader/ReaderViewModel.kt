@@ -23,7 +23,19 @@ import javax.inject.Inject
 
 enum class ReaderTheme { DARK, LIGHT, SEPIA, OLED }
 
+data class ChatMessage(val isUser: Boolean, val text: String)
+
 data class ReaderUiState(
+    val timeToReadChapter: Int = 5,
+    val showSummaryOverlay: Boolean = false,
+    val isChatOpen: Boolean = false,
+    val chatMessages: List<ChatMessage> = emptyList(),
+    val isChatLoading: Boolean = false,
+    val aiSummaryConfig: String? = null,
+    val isVoiceCommandActive: Boolean = false,
+    val isEndReviewVisible: Boolean = false,
+    val customFontName: String? = null,
+    val ttsDownloadProgress: Float? = null,
     val book: Book? = null,
     val currentPage: Int = 0,
     val totalPages: Int = 0,
@@ -51,6 +63,7 @@ data class ReaderUiState(
 class ReaderViewModel @Inject constructor(
     private val repository: BookRepository,
     savedStateHandle: SavedStateHandle,
+    private val llmEngine: com.example.ebook.data.local.ai.LocalLlmEngine,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -153,6 +166,40 @@ class ReaderViewModel @Inject constructor(
 
     fun toggleControls() = _uiState.update { it.copy(showControls = !it.showControls) }
 
+    fun toggleVoiceCommand() {
+        _uiState.update { it.copy(isVoiceCommandActive = !it.isVoiceCommandActive) }
+    }
+
+    fun generateAiSummary() {
+        _uiState.update { it.copy(showSummaryOverlay = true, aiSummaryConfig = "در حال پردازش هوش مصنوعی...") }
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(1500)
+            _uiState.update { it.copy(aiSummaryConfig = "- معرفی شخصیت اصلی\n- توصیف فضای شهر\n- اتفاقات مرموز نیمه شب") }
+        }
+    }
+
+    fun closeSummary() {
+        _uiState.update { it.copy(showSummaryOverlay = false) }
+    }
+
+    fun importCustomFont() {
+        _uiState.update { it.copy(customFontName = "Vazirmatn.ttf") }
+    }
+
+    fun downloadTtsAudio() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(ttsDownloadProgress = 0f) }
+            for (i in 1..10) {
+                kotlinx.coroutines.delay(100)
+                _uiState.update { it.copy(ttsDownloadProgress = i / 10f) }
+            }
+            _uiState.update { it.copy(ttsDownloadProgress = null) }
+        }
+    }
+    
+    fun dismissEndReview() {
+        _uiState.update { it.copy(isEndReviewVisible = false) }
+    }
     fun toggleAudioPlayer() {
         _uiState.update { it.copy(showAudioPlayer = !it.showAudioPlayer) }
     }
@@ -254,5 +301,38 @@ class ReaderViewModel @Inject constructor(
         tts?.stop()
         tts?.shutdown()
         autoScrollJob?.cancel()
+    }
+
+
+    fun toggleChat() {
+        _uiState.update { it.copy(isChatOpen = !it.isChatOpen) }
+    }
+
+    fun sendChatMessage(message: String) {
+        val userMsg = ChatMessage(isUser = true, text = message)
+        _uiState.update { it.copy(
+            chatMessages = it.chatMessages + userMsg,
+            isChatLoading = true
+        ) }
+
+        viewModelScope.launch {
+            // Give time to prepare
+            kotlinx.coroutines.delay(500)
+            
+            // Empty placeholder for AI message
+            val aiMsgIndex = _uiState.value.chatMessages.size
+            _uiState.update { it.copy(chatMessages = it.chatMessages + ChatMessage(isUser = false, text = "")) }
+            
+            var aiText = ""
+            // Mocking stream
+            llmEngine.generateChatResponseStream(message, "context...").collect { token ->
+                aiText += token
+                val updatedMessages = _uiState.value.chatMessages.toMutableList()
+                if (aiMsgIndex < updatedMessages.size) {
+                    updatedMessages[aiMsgIndex] = ChatMessage(isUser = false, text = aiText)
+                    _uiState.update { it.copy(chatMessages = updatedMessages, isChatLoading = false) }
+                }
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
 import com.example.ebook.worker.ReadingReminderWorker
+import com.example.ebook.worker.SyncWorker
 import dagger.hilt.android.HiltAndroidApp
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
@@ -23,6 +24,7 @@ class EBookApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         scheduleDailyReminder()
+        scheduleCloudSync()
     }
 
     private fun scheduleDailyReminder() {
@@ -41,6 +43,22 @@ class EBookApplication : Application(), Configuration.Provider {
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "reading_reminder",
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+    }
+
+    private fun scheduleCloudSync() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "cloud_sync_worker",
             ExistingPeriodicWorkPolicy.KEEP,
             request
         )

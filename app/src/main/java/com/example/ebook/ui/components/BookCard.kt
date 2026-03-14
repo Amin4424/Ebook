@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.ebook.data.model.Book
 import com.example.ebook.ui.theme.*
+import com.example.ebook.ui.components.bounceClick
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -38,7 +39,7 @@ fun BookCard(
     Column(
         modifier = modifier
             .width(140.dp)
-            .clickable(onClick = onClick),
+            .bounceClick(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(

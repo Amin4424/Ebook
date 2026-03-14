@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlinx.serialization)
 }
 
 android {
@@ -59,8 +60,12 @@ dependencies {
     implementation(libs.androidx.compose.google.fonts)
 
     // Navigation
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.compose.material3.windowsize)
     implementation(libs.androidx.navigation.compose)
 
+    // Retrofit
+    implementation(libs.retrofit)
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
@@ -90,4 +95,10 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // Media3
+    val media3Version = "1.2.1"
+    implementation("androidx.media3:media3-exoplayer:$media3Version")
+    implementation("androidx.media3:media3-session:$media3Version")
+    implementation("androidx.media3:media3-common:$media3Version")
 }

@@ -23,6 +23,8 @@ object AppModule {
             "ebook_database"
         ).fallbackToDestructiveMigration().build()
     }
+    
+
 
     @Provides
     fun provideReadingProgressDao(database: EBookDatabase): ReadingProgressDao = database.readingProgressDao()
@@ -35,4 +37,7 @@ object AppModule {
 
     @Provides
     fun provideReviewDao(database: EBookDatabase): ReviewDao = database.reviewDao()
+
+    @Provides
+    fun provideSyncDao(database: EBookDatabase): SyncDao = database.syncDao()
 }
